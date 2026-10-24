@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Orbit - Explore every planet up close</title>
-<meta name="description" content="An interactive tour of every planet in the solar system, plus the exoplanets we have found around other stars. Real NASA data, real planet textures.">
+<title>Orbit - Explore planets, nearby stars, and the Milky Way</title>
+<meta name="description" content="An interactive tour from the solar system out to the Milky Way: every planet up close, the real stars within 16 light-years, our galaxy with real objects marked, and the exoplanets found around other stars.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%23e8b45a'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -24,6 +25,8 @@
   </div>
   <nav class="mode-tabs">
     <button class="mode-tab active" id="tab-system" type="button">Solar system</button>
+    <button class="mode-tab" id="tab-neighborhood" type="button">Stars nearby</button>
+    <button class="mode-tab" id="tab-galaxy" type="button">Galaxy</button>
     <button class="mode-tab" id="tab-exo" type="button">Exoplanets</button>
   </nav>
   <div class="topbar-right">
@@ -42,12 +45,15 @@
   <p class="panel-tagline" id="panel-tagline"></p>
   <p class="panel-desc" id="panel-desc"></p>
   <dl class="fact-grid" id="panel-facts"></dl>
+  <button class="panel-action" id="panel-action" type="button" hidden></button>
   <p class="panel-source" id="panel-source"></p>
 </section>
 
 <div class="hint" id="hint">
   <span>Drag to look around</span><span class="hint-sep"></span><span>Scroll or pinch to zoom</span><span class="hint-sep"></span><span>Tap a planet to fly to it</span>
 </div>
+
+<div class="view-caption" id="view-caption"></div>
 
 <section class="exo" id="exo" hidden>
   <div class="exo-scroll">
@@ -87,6 +93,7 @@
 
     <footer class="site-footer">
       <p>Planet and Sun textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener">Solar System Scope</a>, used under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Planet data: <a href="https://nssdc.gsfc.nasa.gov/planetary/factsheet/" target="_blank" rel="noopener">NASA Planetary Fact Sheet (metric)</a> and <a href="https://nssdc.gsfc.nasa.gov/planetary/factsheet/sunfact.html" target="_blank" rel="noopener">NASA Sun Fact Sheet</a>. Exoplanet data: <a href="https://exoplanetarchive.ipac.caltech.edu/" target="_blank" rel="noopener">NASA Exoplanet Archive</a>, Planetary Systems Composite Parameters table, retrieved 25 Oct 2026. Exoplanet sizes are shown relative to Earth; no real surface images exist for these distant worlds. Solar system view: planet sizes and distances are enlarged for visibility and not to scale; lighting is brightened beyond physical accuracy so every world stays visible.</p>
+      <p>Stars nearby view: positions, spectral types and planet counts from the <a href="https://simbad.cds.unistra.fr/simbad/" target="_blank" rel="noopener">SIMBAD astronomical database</a> (CDS, Strasbourg), all objects with a measured parallax greater than 200 mas, retrieved 25 Oct 2026; a few very faint objects may lack catalogued parallaxes. Galaxy view: marker coordinates from the <a href="http://cds.u-strasbg.fr/" target="_blank" rel="noopener">CDS Sesame</a> resolver (J2000); distances are standard published estimates, rounded. Milky Way size, shape and the Sun's orbit: <a href="https://imagine.gsfc.nasa.gov/science/objects/milkyway1.html" target="_blank" rel="noopener">NASA Imagine the Universe</a> and <a href="https://science.nasa.gov/universe/exoplanets/our-milky-way-galaxy-how-big-is-space/" target="_blank" rel="noopener">NASA Science</a>; Sagittarius A* mass and distance: <a href="https://www.nasa.gov/universe/nasa-animation-sizes-up-the-universes-biggest-black-holes/" target="_blank" rel="noopener">NASA</a>. The galaxy's spiral pattern is an artist's rendering - no photograph of the whole Milky Way exists from outside it.</p>
     </footer>
   </div>
 </section>
