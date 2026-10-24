@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from '../vendor/OrbitControls.js';
 import { PLANETS, SUN, EXOPLANETS, TRAPPIST_SYSTEM } from './data.js';
+import { buildGalaxy, buildNeighborhood } from './galaxy.js';
 
 /* ================= scene ================= */
 const canvas = document.getElementById('scene');
@@ -109,14 +110,24 @@ sunLabel.className = 'planet-label';
 sunLabel.textContent = 'Sun';
 document.body.appendChild(sunLabel);
 
+/* ================= galaxy + neighborhood ================= */
+const galaxy = buildGalaxy();
+scene.add(galaxy.group);
+galaxy.group.visible = false;
+
+const neighborhood = buildNeighborhood(texLoader.load(SUN.texture));
+scene.add(neighborhood.group);
+neighborhood.group.visible = false;
+
 /* ================= selection / fly-to ================= */
 let selected = null;          // mesh currently followed
-let flying = null;            // { from, to, targetFrom, targetTo, t, dur }
+let flying = null;            // { from, to, t, dur }
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
 const panel = document.getElementById('panel');
 const rail = document.getElementById('planet-rail');
+const panelAction = document.getElementById('panel-action');
 
 function easeInOut(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2; }
 
@@ -137,10 +148,10 @@ function select(mesh) {
 
   flying = {
     from: camera.position.clone(), to: targetPos,
-    targetFrom: controls.target.clone(), t: 0, dur: 1.4, mesh
+    t: 0, dur: 1.4, mesh
   };
   showPanel(mesh.userData.body, mesh.userData.eyebrow);
-  markRail(body.id);
+  if (mode === 'system') markRail(body.id);
   hideHint();
 }
 
@@ -148,7 +159,7 @@ function deselect() {
   selected = null; flying = null;
   panel.hidden = true;
   document.body.classList.remove('panel-open', 'panel-collapsed-body');
-  markRail(null);
+  if (mode === 'system') markRail(null);
 }
 
 function showPanel(body, eyebrow) {
@@ -169,9 +180,21 @@ function showPanel(body, eyebrow) {
     dl.appendChild(cell);
   }
   document.getElementById('panel-source').textContent =
-    eyebrow === 'Star'
+    body.source || (eyebrow === 'Star'
       ? 'Data: NASA Sun Fact Sheet. Texture: Solar System Scope (CC BY 4.0).'
-      : 'Data: NASA Planetary Fact Sheet. Texture: Solar System Scope (CC BY 4.0). Moon counts per the NASA fact sheet (last revised March 2025).';
+      : 'Data: NASA Planetary Fact Sheet. Texture: Solar System Scope (CC BY 4.0). Moon counts per the NASA fact sheet (last revised March 2025).');
+  if (body.action) {
+    panelAction.hidden = false;
+    panelAction.textContent = body.action.label;
+    panelAction.onclick = () => {
+      const target = body.action.mode;
+      setMode(target);
+      if (target === 'system') setTimeout(() => select(sunMesh), 60);
+    };
+  } else {
+    panelAction.hidden = true;
+    panelAction.onclick = null;
+  }
   panel.hidden = false;
 }
 
@@ -205,6 +228,13 @@ function markRail(id) {
 }
 
 /* click / tap picking (only when it is not a drag) */
+function pickList() {
+  if (mode === 'system') return [sunMesh, ...planetMeshes];
+  if (mode === 'neighborhood') return neighborhood.pickMeshes;
+  if (mode === 'galaxy') return galaxy.pickMeshes;
+  return [];
+}
+
 let downAt = null;
 canvas.addEventListener('pointerdown', (e) => { downAt = { x: e.clientX, y: e.clientY }; });
 canvas.addEventListener('pointerup', (e) => {
@@ -215,11 +245,24 @@ canvas.addEventListener('pointerup', (e) => {
   pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
   pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects([sunMesh, ...planetMeshes], true);
+  const hits = raycaster.intersectObjects(pickList(), true);
   if (hits.length) {
-    let m = hits[0].object;
-    while (m && !m.userData.body) m = m.parent;
-    if (m) select(m);
+    /* overlapping hit spheres: pick the body whose center is nearest the click on screen */
+    const seen = new Map();
+    for (const h of hits) {
+      let m = h.object;
+      while (m && !m.userData.body) m = m.parent;
+      if (m && !seen.has(m)) seen.set(m, bodyWorldPos(m, new THREE.Vector3()).project(camera));
+    }
+    let best = null, bestD = Infinity;
+    for (const [m, v] of seen) {
+      if (v.z > 1) continue;
+      const dx = (v.x * 0.5 + 0.5) * window.innerWidth - e.clientX;
+      const dy = (-v.y * 0.5 + 0.5) * window.innerHeight - e.clientY;
+      const d = Math.hypot(dx, dy);
+      if (d < bestD) { bestD = d; best = m; }
+    }
+    if (best) select(best);
   }
 });
 
@@ -234,24 +277,97 @@ labelBtn.addEventListener('click', () => {
 orbitBtn.addEventListener('click', () => {
   orbitsOn = !orbitsOn;
   orbitBtn.setAttribute('aria-pressed', String(orbitsOn));
-  orbitLines.forEach(o => o.visible = orbitsOn);
+  orbitLines.forEach(o => { if (mode === 'system') o.visible = orbitsOn; });
 });
 
 /* hint */
+const hintEl = document.getElementById('hint');
 let hintHidden = false;
+function setHintVerb(verb) {
+  const spans = hintEl.querySelectorAll('span:not(.hint-sep)');
+  if (spans[2]) spans[2].textContent = verb;
+}
 function hideHint() {
   if (hintHidden) return;
   hintHidden = true;
-  document.getElementById('hint').classList.add('hidden');
+  hintEl.classList.add('hidden');
 }
 canvas.addEventListener('pointerdown', hideHint, { once: true });
 setTimeout(hideHint, 14000);
 
-/* ================= exoplanet view ================= */
+/* ================= modes ================= */
+const captionEl = document.getElementById('view-caption');
+const MODES = {
+  system: {
+    cam: [0, 42, 95], target: [0, 0, 0], min: 3, max: 400,
+    caption: 'Planet sizes and distances are enlarged for visibility - not to scale. Lighting is brightened beyond physical accuracy so every world stays visible.',
+    verb: 'Tap a planet to fly to it'
+  },
+  neighborhood: {
+    cam: [0, 17, 34], target: [0, 0, 0], camMobile: [0, 26, 52], targetMobile: [0, 0, 0], min: 0.5, max: 160,
+    caption: 'The star systems within ~16 light-years that have a measured parallax in SIMBAD: 54 systems at their real positions (retrieved 25 Oct 2026). Very faint objects can be missing from the catalogue. Star sizes are enlarged; the distances are real. 1 unit = 1 light-year.',
+    verb: 'Tap a star for its story'
+  },
+  galaxy: {
+    cam: [40, 55, 88], target: [0, 0, 0], camMobile: [60, 82, 132], targetMobile: [8, 0, 0], min: 2.5, max: 600,
+    caption: "An artist's rendering - no photograph of the whole Milky Way exists from outside it, so the spiral pattern is illustrative. The glowing markers are real objects at real positions (CDS/SIMBAD). 1 unit = 1,000 light-years.",
+    verb: 'Tap a glowing marker for a real object'
+  }
+};
+let mode = 'system';
+
 const exoView = document.getElementById('exo');
 const tabSystem = document.getElementById('tab-system');
+const tabNeighborhood = document.getElementById('tab-neighborhood');
+const tabGalaxy = document.getElementById('tab-galaxy');
 const tabExo = document.getElementById('tab-exo');
 
+function setSolarVisible(v) {
+  sunMesh.visible = v;
+  planetMeshes.forEach(m => { m.userData.pivot.visible = v; });
+  orbitLines.forEach(o => { o.visible = v && orbitsOn; });
+}
+
+function setMode(m, opts = {}) {
+  deselect();
+  mode = m;
+  const isExo = m === 'exo';
+  exoView.hidden = !isExo;
+  setSolarVisible(m === 'system');
+  neighborhood.group.visible = m === 'neighborhood';
+  galaxy.group.visible = m === 'galaxy';
+
+  rail.style.display = m === 'system' ? '' : 'none';
+  hintEl.style.display = isExo ? 'none' : '';
+
+  const conf = MODES[m];
+  if (conf) {
+    controls.minDistance = conf.min;
+    controls.maxDistance = conf.max;
+    if (!opts.keepCamera) {
+      const narrow = window.innerWidth < 900 && conf.camMobile;
+      camera.position.set(...(narrow ? conf.camMobile : conf.cam));
+      controls.target.set(...(narrow ? conf.targetMobile : conf.target));
+    }
+    captionEl.textContent = conf.caption;
+    captionEl.hidden = false;
+    setHintVerb(conf.verb);
+  } else {
+    captionEl.hidden = true;
+  }
+
+  tabSystem.classList.toggle('active', m === 'system');
+  tabNeighborhood.classList.toggle('active', m === 'neighborhood');
+  tabGalaxy.classList.toggle('active', m === 'galaxy');
+  tabExo.classList.toggle('active', m === 'exo');
+}
+
+tabSystem.addEventListener('click', () => setMode('system'));
+tabNeighborhood.addEventListener('click', () => setMode('neighborhood'));
+tabGalaxy.addEventListener('click', () => setMode('galaxy'));
+tabExo.addEventListener('click', () => setMode('exo'));
+
+/* ================= exoplanet view ================= */
 function exoSizePx(radiusEarth) {
   return Math.min(58, Math.max(8, 12 * Math.pow(radiusEarth, 0.6)));
 }
@@ -302,32 +418,20 @@ function buildExo() {
 }
 buildExo();
 
-tabExo.addEventListener('click', () => {
-  deselect();
-  exoView.hidden = false;
-  rail.style.display = 'none';
-  document.getElementById('hint').style.display = 'none';
-  tabExo.classList.add('active');
-  tabSystem.classList.remove('active');
-});
-tabSystem.addEventListener('click', () => {
-  exoView.hidden = true;
-  rail.style.display = '';
-  document.getElementById('hint').style.display = '';
-  tabSystem.classList.add('active');
-  tabExo.classList.remove('active');
-});
-
-/* deep links: ?focus=earth&view=exo */
+/* deep links: ?focus=earth&view=exo|galaxy|neighborhood */
 {
   const q = new URLSearchParams(location.search);
-  if (q.get('view') === 'exo') tabExo.click();
+  const view = q.get('view');
+  if (view === 'exo') setMode('exo');
+  else if (view === 'galaxy') setMode('galaxy');
+  else if (view === 'neighborhood') setMode('neighborhood');
   const focus = q.get('focus');
   if (focus) {
     const snap = q.get('snap') === '1';
     setTimeout(() => {
       const m = focus === 'sun' ? sunMesh : planetMeshes.find(m => m.userData.body.id === focus);
       if (!m) return;
+      if (mode !== 'system') setMode('system');
       select(m);
       if (snap && flying) {
         camera.position.copy(flying.to);
@@ -339,7 +443,12 @@ tabSystem.addEventListener('click', () => {
 }
 
 /* test/debug handle */
-window.__orbit = { camera, controls, planetMeshes, sunMesh, THREE, get selected() { return selected; } };
+window.__orbit = {
+  camera, controls, planetMeshes, sunMesh, THREE, setMode,
+  galaxy, neighborhood,
+  get selected() { return selected; },
+  get mode() { return mode; }
+};
 
 /* ================= animate ================= */
 const clock = new THREE.Clock();
@@ -347,7 +456,7 @@ const tmpV = new THREE.Vector3();
 const TIME_SCALE = 0.12;
 
 function project(mesh, label, extraHeight) {
-  if (!labelsOn || !exoView.hidden) { label.style.display = 'none'; return; }
+  if (!labelsOn || mode !== 'system') { label.style.display = 'none'; return; }
   bodyWorldPos(mesh, tmpV);
   tmpV.y += extraHeight;
   tmpV.project(camera);
@@ -357,16 +466,39 @@ function project(mesh, label, extraHeight) {
   label.style.top = ((-tmpV.y * 0.5 + 0.5) * window.innerHeight) + 'px';
 }
 
+function projectGeneric(entries, activeMode) {
+  for (const { mesh, el, always } of entries) {
+    if (!labelsOn || mode !== activeMode) { el.style.display = 'none'; continue; }
+    mesh.getWorldPosition(tmpV);
+    /* hide distant labels while zoomed out to avoid clutter */
+    const labelRange = activeMode === 'neighborhood' ? 26 : 55;
+    if (!always && camera.position.distanceTo(tmpV) > labelRange && selected !== mesh) {
+      el.style.display = 'none'; continue;
+    }
+    tmpV.y += (mesh.userData.body ? mesh.userData.body.radius : 0) + 0.35;
+    tmpV.project(camera);
+    if (tmpV.z > 1) { el.style.display = 'none'; continue; }
+    el.style.display = 'block';
+    el.style.left = ((tmpV.x * 0.5 + 0.5) * window.innerWidth) + 'px';
+    el.style.top = ((-tmpV.y * 0.5 + 0.5) * window.innerHeight) + 'px';
+  }
+}
+
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
 
-  planetMeshes.forEach((mesh) => {
-    const p = mesh.userData.body;
-    mesh.userData.pivot.rotation.y += p.speed * TIME_SCALE * dt;
-    mesh.rotation.y += p.rotationSpeed * 60 * dt * 0.5;
-  });
-  sunMesh.rotation.y += 0.01 * dt;
+  if (mode === 'system') {
+    planetMeshes.forEach((mesh) => {
+      const p = mesh.userData.body;
+      mesh.userData.pivot.rotation.y += p.speed * TIME_SCALE * dt;
+      mesh.rotation.y += p.rotationSpeed * 60 * dt * 0.5;
+    });
+    sunMesh.rotation.y += 0.01 * dt;
+  }
+  if (mode === 'galaxy') {
+    galaxy.group.rotation.y += 0.0035 * dt; // illustrative slow spin
+  }
 
   /* follow selected body */
   if (selected) {
@@ -386,6 +518,8 @@ function animate() {
 
   project(sunMesh, sunLabel, SUN.radius + 1);
   planetMeshes.forEach(m => project(m, m.userData.label, m.userData.body.radius + 0.8));
+  projectGeneric(galaxy.labels, 'galaxy');
+  projectGeneric(neighborhood.labels, 'neighborhood');
 
   controls.update();
   renderer.render(scene, camera);
