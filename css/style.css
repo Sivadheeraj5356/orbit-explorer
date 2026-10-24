@@ -287,3 +287,12 @@ body {
   .view-caption { left: 12px; right: 12px; bottom: 64px; max-width: none; }
   .mode-tabs { max-width: none; }
 }
+
+/* ---------- mobile: all four tabs visible, no hidden scroll ---------- */
+@media (max-width: 560px) {
+  .topbar { flex-wrap: wrap; row-gap: 8px; column-gap: 10px; }
+  .brand { margin-right: auto; }
+  .mode-tabs { order: 3; width: 100%; max-width: none; justify-content: flex-start; }
+  .mode-tab { padding: 6px 10px; font-size: 12px; }
+  .exo-scroll { padding-top: 120px; }
+}
