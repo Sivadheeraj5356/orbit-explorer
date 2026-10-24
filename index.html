@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbit - Explore every planet up close</title>
+<meta name="description" content="An interactive tour of every planet in the solar system, plus the exoplanets we have found around other stars. Real NASA data, real planet textures.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-dot"></span>
+    <span class="brand-name">Orbit</span>
+  </div>
+  <nav class="mode-tabs">
+    <button class="mode-tab active" id="tab-system" type="button">Solar system</button>
+    <button class="mode-tab" id="tab-exo" type="button">Exoplanets</button>
+  </nav>
+  <div class="topbar-right">
+    <button class="icon-btn" id="toggle-labels" type="button" aria-pressed="true" title="Toggle labels">Labels</button>
+    <button class="icon-btn" id="toggle-orbits" type="button" aria-pressed="true" title="Toggle orbit paths">Orbits</button>
+  </div>
+</header>
+
+<aside class="planet-rail" id="planet-rail" aria-label="Choose a planet"></aside>
+
+<section class="panel" id="panel" hidden>
+  <button class="panel-collapse" id="panel-collapse" type="button" aria-label="Collapse panel">_</button>
+  <button class="panel-close" id="panel-close" type="button" aria-label="Close">&times;</button>
+  <p class="panel-eyebrow" id="panel-eyebrow"></p>
+  <h1 class="panel-title" id="panel-title"></h1>
+  <p class="panel-tagline" id="panel-tagline"></p>
+  <p class="panel-desc" id="panel-desc"></p>
+  <dl class="fact-grid" id="panel-facts"></dl>
+  <p class="panel-source" id="panel-source"></p>
+</section>
+
+<div class="hint" id="hint">
+  <span>Drag to look around</span><span class="hint-sep"></span><span>Scroll or pinch to zoom</span><span class="hint-sep"></span><span>Tap a planet to fly to it</span>
+</div>
+
+<section class="exo" id="exo" hidden>
+  <div class="exo-scroll">
+    <header class="exo-head">
+      <p class="exo-eyebrow">Beyond our Sun</p>
+      <h1>Exoplanets: planets around other stars</h1>
+      <p class="exo-lede">
+        Astronomers have confirmed more than 6,400 planets orbiting other stars. Most are found with the
+        <strong>transit method</strong>: when a planet crosses in front of its star, the star's light dips by a tiny
+        amount. If the dip repeats on a steady schedule, that is a strong planet candidate - astronomers then run
+        follow-up checks to confirm it, because other things (like a second star passing behind) can mimic the dip. This is a selection of the most interesting ones found so far, with real data from the
+        NASA Exoplanet Archive.
+      </p>
+    </header>
+
+    <div class="transit-demo">
+      <div class="transit-stage">
+        <div class="transit-star"></div>
+        <div class="transit-planet"></div>
+      </div>
+      <div class="transit-chart">
+        <svg viewBox="0 0 320 90" preserveAspectRatio="none" aria-hidden="true">
+          <path class="curve" d="M0,30 L95,30 L110,30 Q120,62 130,62 Q140,62 150,30 L170,30 L185,30 Q195,62 205,62 Q215,62 225,30 L320,30" fill="none"/>
+          <text x="12" y="80" class="curve-label">star brightness</text>
+          <text x="212" y="80" class="curve-label">time &rarr;</text>
+        </svg>
+        <p class="transit-caption">Each dip in the curve is one transit: a planet blocking a little of its star's light.</p>
+      </div>
+    </div>
+
+    <h2 class="exo-subhead">TRAPPIST-1: seven Earth-sized worlds, one star</h2>
+    <p class="exo-note">A single ultra-cool dwarf star 40.5 light-years away hosts seven rocky planets, several in the zone where liquid water could exist. The full system, from the NASA Exoplanet Archive:</p>
+    <div class="trappist-row" id="trappist-row"></div>
+
+    <h2 class="exo-subhead">Notable exoplanets</h2>
+    <div class="exo-grid" id="exo-grid"></div>
+
+    <footer class="site-footer">
+      <p>Planet and Sun textures: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener">Solar System Scope</a>, used under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Planet data: <a href="https://nssdc.gsfc.nasa.gov/planetary/factsheet/" target="_blank" rel="noopener">NASA Planetary Fact Sheet (metric)</a> and <a href="https://nssdc.gsfc.nasa.gov/planetary/factsheet/sunfact.html" target="_blank" rel="noopener">NASA Sun Fact Sheet</a>. Exoplanet data: <a href="https://exoplanetarchive.ipac.caltech.edu/" target="_blank" rel="noopener">NASA Exoplanet Archive</a>, Planetary Systems Composite Parameters table, retrieved 25 Oct 2026. Exoplanet sizes are shown relative to Earth; no real surface images exist for these distant worlds. Solar system view: planet sizes and distances are enlarged for visibility and not to scale; lighting is brightened beyond physical accuracy so every world stays visible.</p>
+    </footer>
+  </div>
+</section>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
