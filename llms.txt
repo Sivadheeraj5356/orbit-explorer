@@ -1,0 +1,13 @@
+# Orbit Explorer
+
+> Orbit Explorer is a free interactive space-exploration web app: tour every planet up close, see the real stars within 16 light-years, view the Milky Way with real objects marked, and browse discovered exoplanets. Runs in the browser, no sign-up. Built by Siva Dheeraj.
+
+## What you can explore
+- The solar system: every planet rendered up close
+- 54 nearby star systems within 16 light-years (real catalog data)
+- The Milky Way with real objects marked (galaxy shape is illustrative)
+- Known exoplanets
+
+## Links
+- App: https://orbit-explorer-psi.vercel.app/
+- Builder: https://github.com/Sivadheeraj5356
